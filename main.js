@@ -31,18 +31,18 @@ function ask(text) {
 
 /* ---------- 2. 语音合成功能（改为 ElevenLabs） ---------- */
 async function ask(text) {
-  // ① 预请求 TTS（会立即开始流式返回）
-  const resp  = await fetch(`/api/tts?text=${encodeURIComponent(text)}`);
-  const blob  = await resp.blob();                // 接收整段 MP3
-  const url   = URL.createObjectURL(blob);
-
-  // ② 播放并在结束时 resolve
-  return new Promise(res => {
+  const resp = await fetch(`/api/tts?text=${encodeURIComponent(text)}`);
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    console.error("TTS error", err.error || resp.statusText);
+    // 回退到浏览器 TTS，保证面试能继续
+    return fallbackSpeak(text);
+  }
+  const blob = await resp.blob();
+  const url  = URL.createObjectURL(blob);
+  return new Promise(r => {
     const audio = new Audio(url);
-    audio.onended = () => {
-      URL.revokeObjectURL(url);
-      res();
-    };
+    audio.onended = () => { URL.revokeObjectURL(url); r(); };
     audio.play();
   });
 }
@@ -98,6 +98,9 @@ recognition.onerror = e => {
 uploadBtn.onclick = async () => {
   const file = resumeInput.files[0];
   if (!file) return alert("请先选择简历文件 ⬆️");
+
+    questions = ["你好你叫什么名字", "你今年几岁"];
+    return;
 
   uploadBtn.disabled = true;
   uploadBtn.textContent = "⏳ 正在生成问题…";
