@@ -99,9 +99,6 @@ uploadBtn.onclick = async () => {
   const file = resumeInput.files[0];
   if (!file) return alert("请先选择简历文件 ⬆️");
 
-    questions = ["你好你叫什么名字", "你今年几岁"];
-    return;
-
   uploadBtn.disabled = true;
   uploadBtn.textContent = "⏳ 正在生成问题…";
 
