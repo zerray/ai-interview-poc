@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   if (!text) return res.status(400).json({ error: "text missing" });
 
   // 1️⃣ 选多语言 voice，100% 兼容中/英
-  const VOICE_ID = "MF3mGyEYCl7XYWbV9V6O";          // Bella（官方多语言示例）
+  const VOICE_ID = "bhJUNIXWQQ94l8eI2VUf";          // Amy
 
   // 2️⃣ 如果字符过长 → 直接 400，前端可切句或加 <break>
   if (text.length > 950) {
