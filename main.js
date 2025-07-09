@@ -80,9 +80,13 @@ async function nextQuestion() {
 recognition.onresult = e => {
   const text = e.results[0][0].transcript.trim();
   appendQA("user", text);
-  recognition.stop();
-  nextQuestion();
 };
+
+recognition.onspeechend = () => {
+  recognition.stop();
+};
+
+recognition.onend = nextQuestion;
 
 /* --- 识别错误：简单重试 --- */
 recognition.onerror = e => {
