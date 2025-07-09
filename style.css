@@ -1,0 +1,4 @@
+body { font-family: system-ui, sans-serif; max-width: 600px; margin: 4rem auto; line-height: 1.6; }
+button { font-size: 1rem; padding: .6rem 1rem; margin-right: .5rem; }
+#qa p { margin: .3rem 0; }
+#qa strong { color: #0069ff; }

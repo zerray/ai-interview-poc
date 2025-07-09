@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI 面试 POC</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- pdf.js（解析 PDF）-->
+  <script type="module" src="./libs/pdf.min.mjs"></script>
+  <!-- mammoth（解析 DOCX）-->
+  <script src="./libs/mammoth.browser.min.js"></script>
+  <script type="module" src="main.js"></script>
+</head>
+<body>
+  <h1>AI Interview POC</h1>
+
+  <input type="file" id="resume-input" accept=".pdf,.doc,.docx,.txt" />
+  <button id="upload-btn">📄 上传简历并生成问题</button>
+  <button id="start-btn">🎤 开始面试</button>
+  <button id="stop-btn"  disabled>🛑 停止</button>
+
+  <div id="qa"></div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
