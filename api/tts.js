@@ -33,13 +33,16 @@ export default async function handler(req, res) {
     }
   );
 
-  // 4️⃣ 若 ElevenLabs 报错 → 把信息透回浏览器方便调试
   if (!elevenResp.ok) {
     const errText = await elevenResp.text();
     return res.status(502).json({ error: errText });
   }
 
-  // 5️⃣ 把 MP3 Stream 透传给前端
-  res.setHeader("Content-Type", "audio/mpeg");
-  return elevenResp.body.pipe(res);      // Node v18+ readable → pipe OK
+  res.status(200).setHeader("Content-Type", "audio/mpeg");
+
+  // 把 Web Stream 视作 async iterable
+  for await (const chunk of elevenResp.body) {
+    res.write(chunk);
+  }
+  res.end();
 }
