@@ -1,15 +1,11 @@
-// api/tts.js   （放在生成问题的那个 generate-questions.js 旁边）
-import fetch from "node-fetch";
-
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).end();
 
-  const { text = "" } = req.query;
+  const text = (req.query?.text || "").trim();
   if (!text) return res.status(400).json({ error: "text missing" });
 
-  // 调 ElevenLabs Streaming TTS —— 选你喜欢的 voice_id
-  const VOICE_ID = "EXAVITQu4vr4xnSDxMaL";          // Rachel
-  const eleven = await fetch(
+  const VOICE_ID = "EXAVITQu4vr4xnSDxMaL";           // Rachel；可换成你喜欢的
+  const elevenResp = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/stream`,
     {
       method: "POST",
@@ -25,7 +21,11 @@ export default async function handler(req, res) {
     }
   );
 
-  // 直接把音频流管道给浏览器（Content-Type: audio/mpeg）
+  if (!elevenResp.ok) {
+    const errText = await elevenResp.text();
+    return res.status(500).json({ error: errText });
+  }
+
   res.setHeader("Content-Type", "audio/mpeg");
-  eleven.body.pipe(res);
+  elevenResp.body.pipe(res);          // 把 MP3 流直接回给浏览器
 }
