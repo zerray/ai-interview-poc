@@ -8,6 +8,29 @@
   <script type="module" src="./libs/pdf.min.mjs"></script>
   <!-- mammoth（解析 DOCX）-->
   <script src="./libs/mammoth.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.22/dist/bundle.min.js"></script>
+  <script>
+    async function initVAD() {
+      // 全局对象叫 `vad`
+      const myvad = await vad.MicVAD.new({
+        // --- 在这接入你的逻辑 ---
+        onSpeechStart() {
+          console.log("开始说话");
+          recognition.start();           // 你的 Web Speech ASR
+        },
+        onSpeechEnd() {
+          console.log("说话结束");
+          recognition.stop();            // 拿到 onresult 再进下一题
+        },
+        // 下面两个阈值决定“多容易触发”——自己调
+        positiveSpeechThreshold: 0.8,    // 开始说话阈值
+        negativeSpeechThreshold: 0.3     // 结束说话阈值
+      });
+  
+      myvad.start();               // 弹麦克风权限 & 开始监听
+    }
+  </script>
   <script type="module" src="main.js"></script>
 </head>
 <body>

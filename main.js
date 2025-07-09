@@ -56,21 +56,21 @@ async function nextQuestion() {
   const q = questions[current++];
   appendQA("ai", q);
   await ask(q);
-  recognition.start();
+  //recognition.start();
 }
 
 /* --- 识别成功：记录回答 & 进入下一题 --- */
 recognition.onresult = e => {
   const text = e.results[0][0].transcript.trim();
   appendQA("user", text);
-  recognition.stop();
+  //recognition.stop();
   nextQuestion();
 };
 
 /* --- 识别错误：简单重试 --- */
 recognition.onerror = e => {
   appendQA("ai", `抱歉，识别出错 (${e.error})，我们重试一次。`);
-  recognition.stop();
+  //recognition.stop();
   nextQuestion();
 };
 
@@ -108,6 +108,7 @@ uploadBtn.onclick = async () => {
 startBtn.onclick = () => {
   startBtn.disabled = true;
   stopBtn.disabled  = false;
+  initVAD();
   nextQuestion();
 };
 
