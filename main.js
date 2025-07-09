@@ -17,9 +17,7 @@ let questions     = [];          // 动态生成的面试题
 let current       = 0;           // 当前问到第几题
 let transcriptLog = [];          // 记录整场对话
 
-/* ---------- 2. 浏览器语音合成 ---------- */
-/*
-function ask(text) {
+function fallbackSpeak(text) {
   return new Promise(res => {
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang  = "zh-CN";
@@ -27,7 +25,6 @@ function ask(text) {
     speechSynthesis.speak(utter);
   });
 }
-*/
 
 /* ---------- 2. 语音合成功能（改为 ElevenLabs） ---------- */
 async function ask(text) {
