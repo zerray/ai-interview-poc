@@ -18,12 +18,32 @@ let current       = 0;           // 当前问到第几题
 let transcriptLog = [];          // 记录整场对话
 
 /* ---------- 2. 浏览器语音合成 ---------- */
+/*
 function ask(text) {
   return new Promise(res => {
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang  = "zh-CN";
     utter.onend = res;
     speechSynthesis.speak(utter);
+  });
+}
+*/
+
+/* ---------- 2. 语音合成功能（改为 ElevenLabs） ---------- */
+async function ask(text) {
+  // ① 预请求 TTS（会立即开始流式返回）
+  const resp  = await fetch(`/api/tts?text=${encodeURIComponent(text)}`);
+  const blob  = await resp.blob();                // 接收整段 MP3
+  const url   = URL.createObjectURL(blob);
+
+  // ② 播放并在结束时 resolve
+  return new Promise(res => {
+    const audio = new Audio(url);
+    audio.onended = () => {
+      URL.revokeObjectURL(url);
+      res();
+    };
+    audio.play();
   });
 }
 
