@@ -1,13 +1,83 @@
-<!DOCTYPE html><html lang="zh-CN"><meta charset="utf-8" />
-<title>AI Interview POC</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/modern-normalize/modern-normalize.css" />
-<body>
-<h1>AI Interview POC</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AI Interview</title>
 
-<input type="file" id="resume" accept=".pdf,.doc,.docx,.txt">
-<button id="upload">📄 解析简历</button>
-<button id="start" disabled>🎤 开始面试</button>
+  <!-- Tailwind CDN (JIT 模式) -->
+  <script src="https://cdn.tailwindcss.com?plugins=typography,forms"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
-<div id="log" style="white-space:pre-line;margin-top:1rem;"></div>
-<script type="module" src="main.js"></script>
-</body></html>
+  <!-- Icon CDN (Lucide) -->
+  <script src="https://unpkg.com/lucide-static@latest"></script>
+
+  <style>
+    html { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system; }
+  </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center p-6 md:p-10
+             bg-gradient-to-br from-indigo-200/40 to-sky-100/60
+             dark:from-slate-800 dark:to-slate-900">
+
+  <!-- ---------- Card ---------- -->
+  <div id="card"
+       class="w-full max-w-2xl
+            backdrop-blur-xl bg-white/70 dark:bg-slate-800/70
+            rounded-2xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10
+            p-8">
+
+    <!-- Header -->
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-semibold tracking-tight mb-1">AI Interview</h1>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-4">
+      <input id="resume"
+             type="file"
+             accept=".pdf,.doc,.docx,.txt"
+             class="flex-1
+                    file:mr-4 file:px-4 file:py-2 file:rounded-lg file:border-0
+                    file:font-medium file:bg-gradient-to-r
+                    file:from-fuchsia-600 file:to-rose-600 file:text-white
+                    hover:file:brightness-110
+                    cursor-pointer text-sm
+                    dark:file:from-fuchsia-700 dark:file:to-rose-700"/>
+    
+      <button id="upload"
+              class="flex items-center gap-2 rounded-lg px-4 py-2
+                     font-medium text-white bg-emerald-600
+                     hover:bg-emerald-700 active:scale-95 transition">
+        <i data-lucide="arrow-up-from-line" class="w-4 h-4"></i> Parse
+      </button>
+    
+      <button id="start"
+              disabled
+              class="flex items-center gap-2 rounded-lg px-4 py-2
+                     font-medium text-white bg-indigo-600
+                     hover:bg-indigo-700 active:scale-95
+                     disabled:opacity-40 disabled:cursor-not-allowed transition">
+        <i data-lucide="mic" class="w-4 h-4"></i> Start
+      </button>
+    </div>
+
+    <!-- Log -->
+    <div class="mt-6">
+      <h2 class="mb-2 text-base font-medium">Conversation Log</h2>
+      <div id="log"
+           class="h-96 overflow-y-auto whitespace-pre-line
+                  bg-slate-50 dark:bg-slate-900 rounded-xl p-4
+                  shadow-inner text-sm"></div>
+    </div>
+  </div>
+
+  <footer class="absolute bottom-3 inset-x-0 text-center text-xs text-slate-400 select-none">
+    © 2025&nbsp;AI Interview
+  </footer>
+
+  <script type="module" src="main.js"></script>
+  <script>lucide.createIcons();</script>
+</body>
+</html>
