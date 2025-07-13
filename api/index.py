@@ -12,16 +12,24 @@ app = FastAPI()
 @app.post("/api/generate-questions")
 async def generate(payload: dict):
     resume = payload.get("resume", "")[:6000]
+    job    = payload.get("job", "")[:3000]  # 可为 job title 或 JD 文本
+
     if not resume:
         raise HTTPException(400, "resume missing")
 
+    # 构建 prompt
     prompt = (
-        "You are a professional interviewer. Based on the candidate’s résumé, "
-        "generate 5 job-relevant QUESTIONS in English. "
-        "Return **only** a JSON array like [{\"q\":\"…\"}, …]."
-        "**Do not** return \`\`\`json before the JSON content.\n\n"
-        "Résumé:\n----\n" + resume + "\n----"
+        "You are a professional interviewer. Based on the candidate’s résumé "
+        "and the job context below, generate 5 job-relevant QUESTIONS in English. "
+        "Focus on skills, experience, and fit. "
+        "Return ONLY a JSON array like [{\"q\": \"...\"}, ...]. "
+        "Do NOT include ```json or any explanation.\n\n"
     )
+
+    if job:
+        prompt += f"Job Description or Title:\n----\n{job}\n----\n\n"
+
+    prompt += f"Candidate Résumé:\n----\n{resume}\n----"
 
     async with httpx.AsyncClient() as cli:
         r = await cli.post(
@@ -29,18 +37,22 @@ async def generate(payload: dict):
             headers={"Authorization": f"Bearer {OPENAI_KEY}"},
             json={
                 "model": "gpt-4o-mini",
-                "messages": [{"role":"user","content": prompt}],
+                "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.6,
             },
             timeout=60,
         )
+
     data = r.json()
+
     try:
         questions = json.loads(data["choices"][0]["message"]["content"])
     except Exception:
+        # fallback：从纯文本中尝试提取问题
         questions = [
             {"q": l.strip("•- ")} for l in
-            data["choices"][0]["message"]["content"].splitlines() if l.strip()
+            data["choices"][0]["message"]["content"].splitlines()
+            if l.strip() and "?" in l
         ][:5]
 
     print(questions)

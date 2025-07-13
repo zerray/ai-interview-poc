@@ -1,5 +1,8 @@
 /* ========= constants & helpers ========= */
 const resumeIn = document.querySelector("#resume");
+const jdFile   = document.querySelector("#jdFile");
+const jobTitle = document.querySelector("#jobTitle");
+
 const uploadBtn= document.querySelector("#upload");
 const startBtn = document.querySelector("#start");
 const log      = document.querySelector("#log");
@@ -8,7 +11,7 @@ let questions = [], idx = 0, followup = 0, sessionId = crypto.randomUUID();
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const rec = new SpeechRecognition();
-rec.lang = "en-US";                // <-- set ASR language
+rec.lang = "en-US";
 rec.interimResults = false;
 rec.continuous     = false;
 
@@ -20,10 +23,20 @@ function append(role, txt) {
 }
 
 /* ========= TTS via /api/tts ========= */
+function fallbackSpeak(text) {
+  return new Promise(res => {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang  = "en";
+    utter.onend = res;
+    speechSynthesis.speak(utter);
+  });
+}
+
 async function ask(text) {
   append("AI", text);
+  return fallbackSpeak(text); // fallback only
   const resp = await fetch("/api/tts?text=" + encodeURIComponent(text));
-  if (!resp.ok) { append("SYS", "TTS error"); return; }
+  if (!resp.ok) { append("SYS", "TTS error"); return fallbackSpeak(text); }
   const url  = URL.createObjectURL(await resp.blob());
   await new Promise(resolve => {
     const audio = new Audio(url);
@@ -68,12 +81,46 @@ uploadBtn.onclick = async () => {
     return;
   }
 
-  append("SYS", "📄 Resume parsed. Sending to backend…");
+  // === Parse JD if available ===
+  let jdText = "";
+  const jd = jdFile.files[0];
 
+  if (jd) {
+    append("SYS", "📄 Reading job description...");
+    if (jd.name.endsWith(".pdf")) {
+      const pdfjsLib = window.pdfjsLib;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "./libs/pdf.worker.min.mjs";
+      const typedarray = new Uint8Array(await jd.arrayBuffer());
+      const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const txt = await page.getTextContent();
+        jdText += txt.items.map(item => item.str).join(" ") + "\n";
+      }
+    } else if (jd.name.endsWith(".docx")) {
+      const { value } = await mammoth.extractRawText({ arrayBuffer: await jd.arrayBuffer() });
+      jdText = value;
+    } else if (jd.name.endsWith(".txt")) {
+      jdText = await jd.text();
+    } else {
+      alert("Unsupported JD file type.");
+      uploadBtn.disabled = false;
+      return;
+    }
+    append("SYS", "📌 JD parsed.");
+  } else {
+    append("SYS", `📌 No JD uploaded. Using job title: "${jobTitle.value}"`);
+  }
+
+  // === Generate questions ===
+  append("SYS", "📤 Sending data to backend…");
   const { questions: qList } = await fetch("/api/generate-questions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ resume })
+    body: JSON.stringify({
+      resume,
+      job: jdText || jobTitle.value || "Software Engineer"
+    })
   }).then(r => r.json());
 
   questions = qList;
