@@ -101,26 +101,37 @@ async def answer(payload: dict):
     mem = memory.setdefault(_id, [])
 
     prompt = f"""
-    You are an interviewer for the role: {job}.
-    Current question: {q}
-    Candidate's answer: {a}
+    You are an intelligent and professional interviewer for the role: {job}.
+    Below is the current interview exchange:
+
+    Current interview question:
+    {q}
+
+    Candidate's response:
+    {a}
+
     Follow-up count: {cnt}
 
-    Conversation summaries so far:
+    Recent conversation summaries:
     {chr(10).join(mem[-6:])}
 
-    Decide the next action:
-    1. "followup" – ask a deeper question about THIS topic
-    2. "next"     – move to the NEXT main question
-    3. "finish"   – end the interview
+    Your task:
+    1. Decide the appropriate next action:
+       - "followup": ask a deeper question about this topic
+       - "next": move to the next topic
+       - "finish": end the interview
 
-    Additional rule:
-    - If follow-up count has reached 3 and the candidate still cannot give a clear or specific answer, or if the candidate says they don't know or can't remember, then choose "next".
+    2. If the candidate’s response includes a **question**, respond briefly before continuing the interview.
+       If it's out of your scope, you can reply:
+       *“I’m an AI interviewer and this might be better addressed by the company’s HR.”*
 
-    Respond ONLY as valid JSON matching:
+    3. If the follow-up count has reached 3 and the candidate still provides vague or unclear answers, or says “I don’t know” or “I don’t remember,” then move to the next question.
+
+    Return ONLY valid JSON in this format:
     {{
       "action": "followup" | "next" | "finish",
-      "question": "your next question or goodbye statement",
+      "acknowledge": "brief reply to the candidate's question, or empty string if not applicable",
+      "question": "your next interview question or closing statement",
       "summary": "one-sentence summary of the candidate's answer"
     }}
     """
@@ -137,8 +148,13 @@ async def answer(payload: dict):
         )
 
     out = json.loads(r.json()["choices"][0]["message"]["content"])
+    full_question = (out["acknowledge"] + "\n" if out["acknowledge"] else "") + out["question"]
     mem.append(out["summary"])
-    return JSONResponse(out)
+    return JSONResponse({
+        "action": out["action"],
+        "question": full_question.strip(),
+        "summary": out["summary"]
+    })
 
 
 # ---------- /generate-report ----------

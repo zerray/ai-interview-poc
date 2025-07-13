@@ -9,6 +9,9 @@ const uploadBtn= document.querySelector("#upload");
 const startBtn = document.querySelector("#start");
 const log      = document.querySelector("#log");
 
+const urlParams = new URLSearchParams(window.location.search);
+const useVoice = urlParams.get("voice") === "true";
+
 let questions = [], idx = 0, followup = 0, sessionId = crypto.randomUUID();
 let resumeText = "";
 let qnaList    = [];
@@ -114,7 +117,9 @@ function fallbackSpeak(text) {
 
 async function ask(text) {
   append("AI", text);
-  return fallbackSpeak(text); // fallback only
+  if (!useVoice) {
+    return fallbackSpeak(text); // fallback only
+  }
   const resp = await fetch("/api/tts?text=" + encodeURIComponent(text));
   if (!resp.ok) { append("SYS", "TTS error"); return fallbackSpeak(text); }
   const url  = URL.createObjectURL(await resp.blob());
