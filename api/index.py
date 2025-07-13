@@ -84,8 +84,8 @@ async def tts(text: str = ""):
                              media_type="audio/mpeg")
 
 
-# ---------- /answer  (动态追问/追踪记忆) ----------
-memory: dict[str, list[str]] = {}      # demo 用内存字典；Prod 请换 Redis/DB
+# ---------- /answer ----------
+memory: dict[str, list[str]] = {}
 
 @app.post("/api/answer")
 async def answer(payload: dict):
@@ -97,10 +97,12 @@ async def answer(payload: dict):
     cnt = payload["followup_cnt"]
 
     mem = memory.setdefault(_id, [])
+
     prompt = f"""
     You are an interviewer for the role: {job}.
     Current question: {q}
     Candidate's answer: {a}
+    Follow-up count: {cnt}
 
     Conversation summaries so far:
     {chr(10).join(mem[-6:])}
@@ -110,19 +112,76 @@ async def answer(payload: dict):
     2. "next"     – move to the NEXT main question
     3. "finish"   – end the interview
 
+    Additional rule:
+    - If follow-up count has reached 3 and the candidate still cannot give a clear or specific answer, or if the candidate says they don't know or can't remember, then choose "next".
+
     Respond ONLY as valid JSON matching:
-    {{"action":"followup|next|finish","question":"…","summary":"one-sentence summary of the answer"}}
+    {{
+      "action": "followup" | "next" | "finish",
+      "question": "your next question or goodbye statement",
+      "summary": "one-sentence summary of the candidate's answer"
+    }}
     """
+
     async with httpx.AsyncClient() as cli:
         r = await cli.post(
             "https://api.openai.com/v1/chat/completions",
             headers={"Authorization": f"Bearer {OPENAI_KEY}"},
             json={
                 "model": "gpt-4o-mini",
-                "messages": [{"role":"user","content": prompt}],
+                "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.4,
             },
         )
+
     out = json.loads(r.json()["choices"][0]["message"]["content"])
     mem.append(out["summary"])
     return JSONResponse(out)
+
+
+# ---------- /generate-report ----------
+@app.post("/api/generate-report")
+async def generate_report(payload: dict):
+    session_id = payload.get("id")
+    qna        = payload.get("qna")  # List of {q, a} dicts
+    job        = payload.get("job", "Software Engineer")
+    resume     = payload.get("resume", "")[:6000]
+
+    if not qna or not isinstance(qna, list):
+        raise HTTPException(400, "Invalid or missing interview data")
+
+    formatted_qna = "\n".join([
+        f"Q{i+1}: {item['q']}\nA{i+1}: {item['a']}"
+        for i, item in enumerate(qna)
+    ])
+
+    prompt = (
+        f"You are a professional technical recruiter and interview analyst.\n"
+        f"Based on the following job context, résumé, and interview transcript,\n"
+        f"write a structured and concise candidate evaluation report in English.\n"
+        f"It should include:\n"
+        f"1. Strengths\n2. Weaknesses\n3. Overall fit score (0–100)\n"
+        f"4. Reasoning for the score and fit.\n"
+        f"Keep it professional and insightful.\n\n"
+        f"Job Description or Title:\n----\n{job}\n----\n\n"
+        f"Résumé:\n----\n{resume}\n----\n\n"
+        f"Interview Transcript:\n----\n{formatted_qna}\n----"
+    )
+
+    async with httpx.AsyncClient() as cli:
+        r = await cli.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {OPENAI_KEY}"},
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.5,
+            },
+            timeout=60,
+        )
+
+    data = r.json()
+    report = data["choices"][0]["message"]["content"].strip()
+
+    print("Generated Report:\n", report)
+    return {"report": report}

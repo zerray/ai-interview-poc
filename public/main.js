@@ -2,12 +2,17 @@
 const resumeIn = document.querySelector("#resume");
 const jdFile   = document.querySelector("#jdFile");
 const jobTitle = document.querySelector("#jobTitle");
+const reportSection = document.querySelector("#reportSection");
+const downloadBtn   = document.querySelector("#downloadReport");
 
 const uploadBtn= document.querySelector("#upload");
 const startBtn = document.querySelector("#start");
 const log      = document.querySelector("#log");
 
 let questions = [], idx = 0, followup = 0, sessionId = crypto.randomUUID();
+let resumeText = "";
+let qnaList    = [];
+let jdText     = "";
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const rec = new SpeechRecognition();
@@ -80,6 +85,7 @@ uploadBtn.onclick = async () => {
     uploadBtn.disabled = false;
     return;
   }
+  resumeText = resume;
 
   // === Parse JD if available ===
   let jdText = "";
@@ -139,6 +145,8 @@ rec.onresult = async e => {
   append("YOU", ans);
   rec.stop();
 
+  qnaList.push({ q: questions[idx], a: ans });
+
   const payload = {
     id: sessionId,
     job_desc: "Backend Java Architecture",
@@ -154,11 +162,37 @@ rec.onresult = async e => {
 
   if (action === "followup") {
     followup++; await nextQuestion(question);
-  } else if (action === "next") {
-    followup = 0; questions[++idx] = question; await nextQuestion(question);
+  } else if (action === "next" && idx+1 < questions.length) {
+    followup = 0; await nextQuestion(questions[++idx]);
   } else {
     append("AI","The interview is finished. Thank you!");
+    reportSection.classList.remove("hidden");
   }
 };
 
 startBtn.onclick = () => nextQuestion(questions[idx]);
+
+downloadBtn.onclick = async () => {
+  append("SYS", "📄 Generating interview report…");
+
+  const resp = await fetch("/api/generate-report", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: sessionId,
+      qna: qnaList,
+      job: jdText || jobTitle.value || "Software Engineer",
+      resume: resumeText
+    })
+  });
+  const { report } = await resp.json();
+
+  // 下载为文本文件
+  const blob = new Blob([report], { type: "text/plain" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = "interview_report.txt";
+  a.click();
+  URL.revokeObjectURL(url);
+};
