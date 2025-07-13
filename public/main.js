@@ -210,7 +210,7 @@ uploadBtn.onclick = async () => {
   }).then(r => r.json());
 
   questions = qList;
-  append("AI", "Questions generated. Click “Start Interview”.");
+  append("AI", "Interviewer is ready. Click “Start Interview”.");
   startBtn.disabled = false;
 };
 
