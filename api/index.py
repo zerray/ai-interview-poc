@@ -4,20 +4,23 @@ import httpx, os, asyncio, json
 
 OPENAI_KEY   = os.environ["OPENAI_API_KEY"]
 ELEVEN_KEY   = os.environ["ELEVEN_API_KEY"]
-VOICE_ID     = "MF3mGyEYCl7XYWbV9V6O"        # Bella（多语言）
+VOICE_ID     = "ZIlrSGI4jZqobxRKprJz"        # Clara
 
 app = FastAPI()
 
 # ---------- /generate-questions ----------
-@app.post("/generate-questions")
+@app.post("/api/generate-questions")
 async def generate(payload: dict):
     resume = payload.get("resume", "")[:6000]
     if not resume:
         raise HTTPException(400, "resume missing")
 
     prompt = (
-        "你是一位面试官。根据候选人简历生成 5 个中文问题，"
-        "只返回 JSON: [{\"q\":\"...\"},...]。\n\n简历:\n----\n" + resume + "\n----"
+        "You are a professional interviewer. Based on the candidate’s résumé, "
+        "generate 5 job-relevant QUESTIONS in English. "
+        "Return **only** a JSON array like [{\"q\":\"…\"}, …]."
+        "**Do not** return \`\`\`json before the JSON content.\n\n"
+        "Résumé:\n----\n" + resume + "\n----"
     )
 
     async with httpx.AsyncClient() as cli:
@@ -35,12 +38,12 @@ async def generate(payload: dict):
     try:
         questions = json.loads(data["choices"][0]["message"]["content"])
     except Exception:
-        # 粗兜底：按行切
         questions = [
             {"q": l.strip("•- ")} for l in
             data["choices"][0]["message"]["content"].splitlines() if l.strip()
         ][:5]
 
+    print(questions)
     return {"questions": [q["q"] for q in questions]}
 
 
@@ -61,7 +64,7 @@ async def eleven_stream(text: str):
             async for chunk in resp.aiter_bytes():
                 yield chunk
 
-@app.get("/tts")
+@app.get("/api/tts")
 async def tts(text: str = ""):
     if not text:
         raise HTTPException(400, "text missing")
@@ -72,7 +75,7 @@ async def tts(text: str = ""):
 # ---------- /answer  (动态追问/追踪记忆) ----------
 memory: dict[str, list[str]] = {}      # demo 用内存字典；Prod 请换 Redis/DB
 
-@app.post("/answer")
+@app.post("/api/answer")
 async def answer(payload: dict):
     # payload = {id, job_desc, q, a, followup_cnt}
     _id = payload["id"]
@@ -83,18 +86,21 @@ async def answer(payload: dict):
 
     mem = memory.setdefault(_id, [])
     prompt = f"""
-你是一位面试官，领域 {job}。
-当前问题: {q}
-候选人回答: {a}
+    You are an interviewer for the role: {job}.
+    Current question: {q}
+    Candidate's answer: {a}
 
-历史摘要:
-{chr(10).join(mem[-6:])}
+    Conversation summaries so far:
+    {chr(10).join(mem[-6:])}
 
-如果回答信息不足，给一个后续追问 (followup)。
-若已充分，给下一个主问题 (next)。
-JSON:
-{{"action":"followup|next|finish","question":"...","summary":"一句话摘要"}}
-"""
+    Decide the next action:
+    1. "followup" – ask a deeper question about THIS topic
+    2. "next"     – move to the NEXT main question
+    3. "finish"   – end the interview
+
+    Respond ONLY as valid JSON matching:
+    {{"action":"followup|next|finish","question":"…","summary":"one-sentence summary of the answer"}}
+    """
     async with httpx.AsyncClient() as cli:
         r = await cli.post(
             "https://api.openai.com/v1/chat/completions",

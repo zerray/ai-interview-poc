@@ -12,6 +12,9 @@ rec.lang = "en-US";                // <-- set ASR language
 rec.interimResults = false;
 rec.continuous     = false;
 
+rec.onstart = () => append("SYS", "🎙️ Listening...");
+rec.onend   = () => append("SYS", "⏹️ Recognition ended.");
+
 function append(role, txt) {
   log.textContent += `${role}: ${txt}\n`;
 }
@@ -22,7 +25,12 @@ async function ask(text) {
   const resp = await fetch("/api/tts?text=" + encodeURIComponent(text));
   if (!resp.ok) { append("SYS", "TTS error"); return; }
   const url  = URL.createObjectURL(await resp.blob());
-  await new Audio(url).play().catch(()=>{});
+  await new Promise(resolve => {
+    const audio = new Audio(url);
+    audio.onended = resolve;
+    audio.onerror = resolve;
+    audio.play().catch(resolve);
+  });
   URL.revokeObjectURL(url);
 }
 
@@ -31,14 +39,42 @@ uploadBtn.onclick = async () => {
   const f = resumeIn.files[0];
   if (!f) return alert("Please select a resume file first.");
   uploadBtn.disabled = true;
-  append("SYS", "⏳ Parsing resume …");
+  append("SYS", "⏳ Reading resume content…");
 
-  const resume = await f.text();
+  let resume = "";
+
+  if (f.name.endsWith(".pdf")) {
+    const pdfjsLib = window.pdfjsLib;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "./libs/pdf.worker.min.mjs";
+    const typedarray = new Uint8Array(await f.arrayBuffer());
+    const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const txt = await page.getTextContent();
+      resume += txt.items.map(item => item.str).join(" ") + "\n";
+    }
+
+  } else if (f.name.endsWith(".docx")) {
+    const { value } = await mammoth.extractRawText({ arrayBuffer: await f.arrayBuffer() });
+    resume = value;
+
+  } else if (f.name.endsWith(".txt")) {
+    resume = await f.text();
+
+  } else {
+    alert("Unsupported file type. Please upload PDF, DOCX, or TXT.");
+    uploadBtn.disabled = false;
+    return;
+  }
+
+  append("SYS", "📄 Resume parsed. Sending to backend…");
+
   const { questions: qList } = await fetch("/api/generate-questions", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ resume })
-  }).then(r=>r.json());
+  }).then(r => r.json());
 
   questions = qList;
   append("AI", "Questions generated. Click “Start Interview”.");

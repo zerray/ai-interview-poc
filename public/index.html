@@ -9,12 +9,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
-  <!-- Icon CDN (Lucide) -->
-  <script src="https://unpkg.com/lucide-static@latest"></script>
-
   <style>
     html { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system; }
   </style>
+
+  <script type="module" src="./libs/pdf.min.mjs"></script>
+  <script src="./libs/mammoth.browser.min.js"></script>
 </head>
 
 <body class="min-h-screen flex items-center justify-center p-6 md:p-10
@@ -74,10 +74,9 @@
   </div>
 
   <footer class="absolute bottom-3 inset-x-0 text-center text-xs text-slate-400 select-none">
-    © 2025&nbsp;AI Interview
+    © 2025&nbsp;Fuku AI
   </footer>
 
   <script type="module" src="main.js"></script>
-  <script>lucide.createIcons();</script>
 </body>
 </html>
