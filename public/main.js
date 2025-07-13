@@ -27,6 +27,81 @@ function append(role, txt) {
   log.textContent += `${role}: ${txt}\n`;
 }
 
+/* ========= AssemblyAI ========= */
+let mediaRecorder, silenceTimer, audioChunks = [];
+
+function stopAndTranscribe() {
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.stop();
+    append("SYS", "⏹️ Stopped recording (silence)");
+  }
+}
+
+async function startRecording() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const audioContext = new AudioContext();
+  const source = audioContext.createMediaStreamSource(stream);
+  const analyser = audioContext.createAnalyser();
+  analyser.fftSize = 2048;
+  source.connect(analyser);
+
+  const dataArray = new Uint8Array(analyser.fftSize);
+  let silenceDuration = 0;
+  const silenceThreshold = 0.02;
+  const maxSilenceTime = 3000;
+
+  mediaRecorder = new MediaRecorder(stream);
+  audioChunks = [];
+
+  mediaRecorder.ondataavailable = e => {
+    if (e.data.size > 0) audioChunks.push(e.data);
+  };
+
+  mediaRecorder.onstop = async () => {
+    stream.getTracks().forEach(track => track.stop());
+    audioContext.close();
+
+    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+    const formData = new FormData();
+    formData.append("audio", blob);
+
+    const resp = await fetch("/api/transcribe", {
+      method: "POST",
+      body: formData
+    });
+    const { text } = await resp.json();
+    processAnswer(text);
+  };
+
+  mediaRecorder.start();
+  append("SYS", "🎙️ Recording…");
+
+  function checkSilence() {
+    analyser.getByteTimeDomainData(dataArray);
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const normalized = (dataArray[i] - 128) / 128;
+      sum += normalized * normalized;
+    }
+    const volume = Math.sqrt(sum / dataArray.length);
+
+    if (volume < silenceThreshold) {
+      silenceDuration += 1000/60.0;  // 60fps
+      if (silenceDuration >= maxSilenceTime) {
+        append("SYS", "🛑 Detected silence. Stopping recording.");
+        mediaRecorder.stop();
+        return;
+      }
+    } else {
+      silenceDuration = 0; // reset if speech is detected
+    }
+
+    requestAnimationFrame(checkSilence);
+  }
+
+  requestAnimationFrame(checkSilence);
+}
+
 /* ========= TTS via /api/tts ========= */
 function fallbackSpeak(text) {
   return new Promise(res => {
@@ -137,13 +212,11 @@ uploadBtn.onclick = async () => {
 /* ========= interview loop ========= */
 async function nextQuestion(qText) {
   await ask(qText);
-  rec.start();
-}
+  startRecording();
+};
 
-rec.onresult = async e => {
-  const ans = e.results[0][0].transcript.trim();
+async function processAnswer(ans) {
   append("YOU", ans);
-  rec.stop();
 
   qnaList.push({ q: questions[idx], a: ans });
 

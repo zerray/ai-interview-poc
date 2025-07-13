@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Request, HTTPException
+from fastapi import UploadFile, File
 from fastapi.responses import StreamingResponse, JSONResponse
 import httpx, os, asyncio, json
 
 OPENAI_KEY   = os.environ["OPENAI_API_KEY"]
 ELEVEN_KEY   = os.environ["ELEVEN_API_KEY"]
+ASSEMBLY_KEY = os.environ["ASSEMBLY_API_KEY"]
 VOICE_ID     = "ZIlrSGI4jZqobxRKprJz"        # Clara
 
 app = FastAPI()
@@ -185,3 +187,39 @@ async def generate_report(payload: dict):
 
     print("Generated Report:\n", report)
     return {"report": report}
+
+# -------- /transcribe --------
+@app.post("/api/transcribe")
+async def transcribe(audio: UploadFile = File(...)):
+    api_key = ASSEMBLY_KEY
+
+    # 上传音频到 AssemblyAI
+    async with httpx.AsyncClient() as client:
+        upload_resp = await client.post(
+            "https://api.assemblyai.com/v2/upload",
+            headers={"authorization": api_key},
+            content=await audio.read(),
+            timeout=60,
+        )
+        upload_url = upload_resp.json()["upload_url"]
+
+        # 请求转录
+        transcript_resp = await client.post(
+            "https://api.assemblyai.com/v2/transcript",
+            headers={"authorization": api_key, "content-type": "application/json"},
+            json={"audio_url": upload_url}
+        )
+        transcript_id = transcript_resp.json()["id"]
+
+        # 查询结果（可换成 webhook）
+        while True:
+            r = await client.get(
+                f"https://api.assemblyai.com/v2/transcript/{transcript_id}",
+                headers={"authorization": api_key}
+            )
+            data = r.json()
+            if data["status"] == "completed":
+                return {"text": data["text"]}
+            elif data["status"] == "error":
+                return {"text": "[Error] Transcription failed"}
+            await asyncio.sleep(1)
