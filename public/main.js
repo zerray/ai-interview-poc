@@ -227,7 +227,7 @@ async function processAnswer(ans) {
 
   const payload = {
     id: sessionId,
-    job_desc: "Backend Java Architecture",
+    job_desc: jdText || jobTitle.value || "Software Engineer",
     q: questions[idx],
     a: ans,
     followup_cnt: followup
@@ -241,9 +241,9 @@ async function processAnswer(ans) {
   if (action === "followup") {
     followup++; await nextQuestion(question);
   } else if (action === "next" && idx+1 < questions.length) {
-    followup = 0; await nextQuestion(questions[++idx]);
+    followup = 1; await nextQuestion(question + "\n" + questions[++idx]);
   } else {
-    append("AI","The interview is finished. Thank you!");
+    ask("The interview is finished. Thank you!");
     reportSection.classList.remove("hidden");
   }
 };
@@ -272,5 +272,18 @@ downloadBtn.onclick = async () => {
   a.href     = url;
   a.download = "interview_report.txt";
   a.click();
+  URL.revokeObjectURL(url);
+};
+
+document.querySelector("#download-log").onclick = () => {
+  const logText = log.textContent;
+  const blob = new Blob([logText], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `interview_log_${new Date().toISOString().slice(0, 10)}.txt`;
+  a.click();
+
   URL.revokeObjectURL(url);
 };

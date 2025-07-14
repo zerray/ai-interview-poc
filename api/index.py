@@ -21,11 +21,22 @@ async def generate(payload: dict):
 
     # 构建 prompt
     prompt = (
-        "You are a professional interviewer. Based on the candidate’s résumé "
-        "and the job context below, generate 5 job-relevant QUESTIONS in English. "
-        "Focus on skills, experience, and fit. "
-        "Return ONLY a JSON array like [{\"q\": \"...\"}, ...]. "
-        "Do NOT include ```json or any explanation.\n\n"
+    "You are a friendly and professional AI interviewer conducting an interview for the position described below.\n\n"
+    "Start by introducing yourself briefly and mentioning the job title. Then ask the candidate to do a short self-introduction.\n"
+    "After that, generate 4 additional interview questions that are job-relevant and based on the candidate’s résumé and the job description.\n\n"
+    "Your questions should focus on the candidate’s skills, recent experience, and how well they fit the role.\n\n"
+    "Return ONLY a JSON array like: [{\"q\": \"...\"}, ...].\n"
+    "Do NOT include ```json or any explanation.\n"
+
+    """Example:
+    [
+      {"q": "Hi! I'm your AI interviewer for this session. We're interviewing for the Software Engineer role. Could you start by briefly introducing yourself?"},
+      {"q": "Can you walk me through one of your most recent projects and your role in it?"},
+      {"q": "How have you used Python or Java in past backend development work?"},
+      {"q": "What are some challenges you've faced when working on scalable systems, and how did you solve them?"},
+      {"q": "What makes you interested in this particular role, and how do you see yourself contributing?"}
+    ]
+    """
     )
 
     if job:
@@ -101,40 +112,42 @@ async def answer(payload: dict):
     mem = memory.setdefault(_id, [])
 
     prompt = f"""
-    You are an intelligent and professional interviewer for the role: {job}.
-    Below is the current interview exchange:
+You are an intelligent and friendly AI interviewer for the role of {job}.
 
-    Current interview question:
-    {q}
+Your objective is to:
+- Assess the candidate’s experience and technical ability
+- Maintain a natural and engaging conversation flow
+- Ask relevant and clear questions with smooth transitions
 
-    Candidate's response:
-    {a}
+Current question:
+{q}
 
-    Follow-up count: {cnt}
+Candidate's response:
+{a}
 
-    Recent conversation summaries:
-    {chr(10).join(mem[-6:])}
+Number of follow-ups already asked: {cnt}
+Recent conversation summaries:
+{chr(10).join(mem[-6:])}
 
-    Your task:
-    1. Decide the appropriate next action:
-       - "followup": ask a deeper question about this topic
-       - "next": move to the next topic
-       - "finish": end the interview
+Your response should follow these rules:
+1. If the candidate’s answer is unclear, off-topic, or misses key technical points, ask ONE concise follow-up question to clarify or go deeper.
+2. If the answer is reasonably clear OR the follow-up count is 2 or more, move to the next question.
+3. If the candidate asks a question, first respond naturally. If it’s out of scope, say: “I’m an AI interviewer — that question might be better answered by the company’s HR.”
+4. If the candidate asks to end, conclude the interview.
 
-    2. If the candidate’s response includes a **question**, respond briefly before continuing the interview.
-       If it's out of your scope, you can reply:
-       *“I’m an AI interviewer and this might be better addressed by the company’s HR.”*
+Tone:
+- Friendly, respectful, and professional
+- Respond naturally, as if you were a human interviewer
+- Provide encouragement or acknowledgments like “Thanks” or “Interesting point” before transitioning
 
-    3. If the follow-up count has reached 3 and the candidate still provides vague or unclear answers, or says “I don’t know” or “I don’t remember,” then move to the next question.
-
-    Return ONLY valid JSON in this format:
-    {{
-      "action": "followup" | "next" | "finish",
-      "acknowledge": "brief reply to the candidate's question, or empty string if not applicable",
-      "question": "your next interview question or closing statement",
-      "summary": "one-sentence summary of the candidate's answer"
-    }}
-    """
+Return only valid JSON in the following format:
+{{
+  "action": "followup" | "next" | "finish",
+  "acknowledge": "brief reply to the candidate’s question or a transitional phrase, or empty string",
+  "question": "next interview question or closing statement",
+  "summary": "a one-sentence summary of the candidate’s answer"
+}}
+"""
 
     async with httpx.AsyncClient() as cli:
         r = await cli.post(
@@ -146,10 +159,17 @@ async def answer(payload: dict):
                 "temperature": 0.4,
             },
         )
-
     out = json.loads(r.json()["choices"][0]["message"]["content"])
     full_question = (out["acknowledge"] + "\n" if out["acknowledge"] else "") + out["question"]
+    if cnt >= 2:
+        full_question = out["acknowledge"]
+        out["action"] = "next"
     mem.append(out["summary"])
+
+    #print(cnt)
+    #print(out["action"])
+    #print(full_question)
+
     return JSONResponse({
         "action": out["action"],
         "question": full_question.strip(),
