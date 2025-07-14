@@ -161,7 +161,7 @@ Return only valid JSON in the following format:
         )
     out = json.loads(r.json()["choices"][0]["message"]["content"])
     full_question = (out["acknowledge"] + "\n" if out["acknowledge"] else "") + out["question"]
-    if cnt >= 2:
+    if out["action"] == "next" or cnt >= 2:
         full_question = out["acknowledge"]
         out["action"] = "next"
     mem.append(out["summary"])
