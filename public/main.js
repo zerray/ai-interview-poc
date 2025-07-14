@@ -248,7 +248,10 @@ async function processAnswer(ans) {
   }
 };
 
-startBtn.onclick = () => nextQuestion(questions[idx]);
+startBtn.onclick = () => {
+    nextQuestion(questions[idx]);
+    startBtn.disabled = true;
+}
 
 downloadBtn.onclick = async () => {
   append("SYS", "📄 Generating interview report…");
