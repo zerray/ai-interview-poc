@@ -158,6 +158,7 @@ Return only valid JSON in the following format:
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.4,
             },
+            timeout=60,
         )
     out = json.loads(r.json()["choices"][0]["message"]["content"])
     full_question = (out["acknowledge"] + "\n" if out["acknowledge"] else "") + out["question"]
